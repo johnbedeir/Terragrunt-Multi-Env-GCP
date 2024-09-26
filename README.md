@@ -21,7 +21,9 @@ This project establishes a comprehensive infrastructure using Terragrunt to mana
 - `modules/`: Contains the reusable Terraform modules for resources such as GKE clusters, VPCs, and Cloud SQL.
   - `gke.tf`: GKE cluster configuration.
   - `vpc.tf`: VPC configuration.
-  - `sql.tf`: Cloud SQL configuration.
+  - `nat.tf`: Network configuration.
+  - `cloud_secret_manager.tf`: Generating Database Passwords.
+  - `cloud_sql.tf`: Cloud SQL configuration.
   - `provider.tf`: GCP provider configuration.
   - `variables.tf`: Input variables used across modules.
 
@@ -35,27 +37,33 @@ This project establishes a comprehensive infrastructure using Terragrunt to mana
 
 To deploy the infrastructure for both **dev** and **prod** environments, navigate to the `environments` directory and run the following commands:
 
+Before building the infrastructure you will need to create a `service account` with `key` and download the `JSON` credentials file to be able to connect to your `GCP account`, so run the following script first:
+
+```
+./run-me-first.sh
+```
+
+This will remove any previously created `service account` and create a new one then download the `JSON` credentials file into modules directory
+
+`NOTE: We remove previous service accounts and keys because you are limited to 10 just in case you build the project several times`
+
 ### 1. Initialize the Terraform backend
 
 ```bash
-cd dev
-terragrunt init
-```
-
-Repeat the process for **prod**:
-
-```bash
-cd ../prod
-terragrunt init
+terragrunt run-all init
 ```
 
 ### 2. Plan the infrastructure changes
 
-Run the following command to review the planned changes for **dev**:
+Run the following command to review the planned changes for **dev** and **prod**:
 
 ```bash
 terragrunt run-all plan
 ```
+
+<img src=imgs/dev.png>
+
+<img src=imgs/prod.png>
 
 ### 3. Apply the infrastructure changes
 
@@ -65,6 +73,8 @@ After reviewing the plan, you can apply the changes for both environments using:
 terragrunt run-all apply
 ```
 
+<img src=imgs/output.png>
+
 This will deploy the resources to both the **dev** and **prod** environments.
 
 ### Accessing GKE Clusters
@@ -73,17 +83,21 @@ To switch between the **dev** and **prod** GKE clusters, use the following comma
 
 - For **dev**:
 
-```bash
-gcloud container clusters get-credentials dev-cluster --zone europe-west1-d --project dev-project-id
-```
+  ```bash
+  gcloud container clusters get-credentials dev-cluster --zone europe-west1-d --project dev-project-id
+  ```
+
+  <img src=imgs/dev-cluster.png>
 
 - For **prod**:
 
-```bash
-gcloud container clusters get-credentials prod-cluster --zone europe-west1-b --project prod-project-id
-```
+  ```bash
+  gcloud container clusters get-credentials prod-cluster --zone europe-west1-b --project prod-project-id
+  ```
 
-These commands update your kubeconfig file, allowing you to interact with the desired Kubernetes cluster.
+  <img src=imgs/prod-cluster.png>
+
+  These commands update your kubeconfig file, allowing you to interact with the desired Kubernetes cluster.
 
 ### Connecting to Cloud SQL Databases
 
@@ -97,7 +111,7 @@ To connect to your **dev** or **prod** Cloud SQL instances, follow these steps:
 2. **Retrieve Cloud SQL Username and Password** from **Secret Manager**:
 
    - The Cloud SQL credentials (username and password) are stored in **Secret Manager**.
-   - Go to **GCP Secret Manager** and look for secrets like `dev-sql-credentials` or `prod-sql-credentials`.
+   - Go to **GCP Secret Manager** and look for secrets like `dev-cluster-1-cloudsql-secrets` or `prod-cluster-1-cloudsql-secrets`.
 
 3. **Connect using MySQL**:
 
@@ -113,11 +127,15 @@ To connect to your **dev** or **prod** Cloud SQL instances, follow these steps:
      mysql -h prod-sql-instance-ip -u <username-from-secret-manager> -P 3306 -p
      ```
 
+### Teardown All Environments
+
+To destroy the infrastructure for both dev and prod environments, you can use the following commands.
+
+```bash
+terragrunt run-all destroy
+```
+
 ## Notes
 
 - Each environment (dev/prod) has its own `terragrunt.hcl` file, which points to the shared Terraform modules located in the `modules/` directory.
 - Changes applied will be specific to the environment (either dev or prod), but running `terragrunt run-all` ensures that both environments are handled simultaneously.
-
----
-
-This version of the README is tailored to **GCP** resources while maintaining the same workflow and structure as your AWS setup. Let me know if you need any further adjustments!
